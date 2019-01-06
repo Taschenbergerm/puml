@@ -1,0 +1,36 @@
+class {{class_name}} {     
+
+.. Public ..            
+{% for method in own_public %}
++{{method}}()
+{%endfor%}
+.. Private .. 
+{% for method in own_private %}
++{{method}}()
+{%endfor%}
+.. Secret .. 
+{% for method in own_secret %}
++{{method}}()
+{%endfor%}
+.. Dunder .. 
+{% for method in own_dunder %}
++{{method}}()
+{%endfor%}
+==
+.. Public  .. 
+{% for method in  inherited_public %}
+-{{method}}()
+{%endfor%}
+.. Private .. 
+{% for method in  inherited_private %}
+-{{method}}()
+{%endfor%}
+.. Secret .. 
+{% for method in  inherited_secret %}
+-{{method}}()
+{%endfor%}
+.. Dunder .. 
+{% for method in inherited_dunder %}
++{{method}}()
+{%endfor%}
+}
