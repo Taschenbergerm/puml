@@ -4,22 +4,22 @@
 # flake8: noqa
 
 
-__version__ = 0.0.1
+__version__ = "0.0.1"
 
 __docformat__ = 'restructuredtext'
 
 __docs__ = """ A small python class that generates a plant-uml file for class relationships of an object and all its parents,
  without parsing any file and without initiating it.  Therefore only methods are shown ( so far) while attributes are left out
  """
- __release__ = 1 
- __license__ = "AGPL-3.0"
+__release__ = 1
+__license__ = "AGPL-3.0"
 
 
 __docformat__ = 'restructuredtext'
 
 # Let users know if they're missing any of our hard dependencies
-hard_dependencies = ("Jinja2",)
-
+hard_dependencies = ("jinja2",)
+missing_dependencies = []
 
 for dependency in hard_dependencies:
     try:
