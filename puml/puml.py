@@ -1,11 +1,50 @@
+from typing import Callable, Iterable, Union, Optional, List
 import inspect
 import jinja2
 
-class Puml():
 
-    def __init__(self,obj, level= None ):
+class Pumlgenerator:
 
-        #self.instance = obj(*args, **kwargs)
+    def __init__(self, objs: List[object] = list()):
+        self.objs = objs
+        self.clean_name = Puml.clean_namespaces
+        self.__absorb_obj()
+
+    def __absorb_obj(self):
+        self.clean_dict = {self.clean_name(obj, "name"): Puml(obj) for obj in self.objs}
+
+    def add_obj(self, obj: object):
+        self.objs.append(obj)
+        self.__absorb_obj()
+        return self
+
+    def add_objs(self, objs: List[object]):
+        for obj in objs:
+            self.add_obj(obj)
+        return self
+
+    def draw_pumls(self) -> str:
+        master_parents = {}
+        master_expanded = {}
+        for _, puml in self.clean_dict.items():
+            master_parents.update(puml.parent_dict)
+            master_expanded.update(puml.expanded_parents)
+
+        master = Puml(object)
+        master.parent_dict = master_parents
+        master.expanded_parents = master_expanded
+        return master.draw_puml()
+
+
+class Puml:
+
+    def __init__(self, obj: object = None):
+        """
+
+        :param obj: Object that a class diagram should be generated
+        :type obj: class; uninitiated
+        """
+
         self.inheritance_mapping = {}
         self.method_mapping = {}
         self.__childs_of_obj = []
@@ -17,19 +56,29 @@ class Puml():
         self.flatten = lambda l: [item for sublist in l for item in sublist]
 
         # Chain of Initiaton
-        self.gen_parent_dict(obj)
+        if obj is not object:
+            self.gen_parent_dict(obj)
         self.expand_parents()
         self.get_all_methods()
 
         # Jinja Templates
-        templateLoader = jinja2.FileSystemLoader(searchpath="./templates")
-        templateEnv = jinja2.Environment(loader=templateLoader)
+        template_loader = jinja2.FileSystemLoader(searchpath="../templates")
+        template_env = jinja2.Environment(loader=template_loader)
 
-        self.class_template = templateEnv.get_template("puml_class.j2")
-        self.relations_template = templateEnv.get_template("puml_relation.j2")
-        self.puml_tmpl = templateEnv.get_template("puml.j2")
+        self.class_template = template_env.get_template("puml_class.j2")
+        self.relations_template = template_env.get_template("puml_relation.j2")
+        self.puml_tmpl = template_env.get_template("puml.j2")
 
-    def gen_parent_dict(self, obj):
+    def gen_parent_dict(self, obj: object) -> "Puml":
+        """
+        Genearate a dictionary of the relationship  child: parent
+        :param obj: Obj for which the dictionary should be build
+        :type obj: class; unitiated
+        :return:  self; Puml-Object
+        :rtype: class
+        """
+        if obj == object:
+            return self
         parents = obj.__bases__
         self.parent_dict[obj] = [*parents]
 
@@ -40,53 +89,80 @@ class Puml():
             for parent in parents:
                 self.gen_parent_dict(parent)
 
-    def expand_parents(self):
+    def expand_parents(self) -> "Puml":
+        """
+        Builds an extended dictinary of the child -> parent dict  to an child -> parent, parents parent dict
+        :return: Dictionary of child->ancestros
+        :rtype: dict
+        """
 
         for obj in self.parent_dict.keys():
             self.expanded_parents[obj] = self._expand_parents(obj)
+        return self
 
-    def _expand_parents(self, obj):
+    def _expand_parents(self, obj) -> list:
         parents = self.parent_dict[obj]
         ancestores = []
-        round = []
+        iteration = []
         while parents:
             ancestores.extend(parents)
             for parent in parents:
                 found_ancestores = self.parent_dict.get(parent)
                 if found_ancestores:
-                    round.extend(found_ancestores)
+                    iteration.extend(found_ancestores)
 
-            parents, round =round , []
+            parents, iteration = iteration, []
         return ancestores
 
-    def get_all_methods(self):
+    def get_all_methods(self) -> "Puml":
         for obj in self.parent_dict.keys():
             iterator = [obj] + self.expanded_parents[obj]
             self.method_mapping[obj] = self.flatten([self.get_methods(p) for p in iterator])
+        return self
 
     @staticmethod
-    def get_methods(obj):
+    def get_methods(obj: object) -> list:
+        """
+        Generates  a List of Methods for the respectife  Object
+        :param obj: Object from which the methods should be extraced
+        :type obj: class; uninitiated
+        :return: List of Methods
+        :rtype: list
+        """
+
         members = inspect.getmembers(obj)
         mapping_proxy = None
 
         for member in members:
-            if len(member) ==2:
+            if len(member) == 2:
                 if member[0] == "__dict__":
                     print(member)
                     mapping_proxy = member[1].items()
                     break
         if mapping_proxy:
-            ret =  [func.strip() for func,type_ in mapping_proxy if inspect.isfunction(type_)]
+            ret = [func.strip() for func, type_ in mapping_proxy if inspect.isfunction(type_)]
         else:
             ret = []
 
         return ret
 
-    def clean_name(self,obj):
+    def clean_name(self, obj: object) -> str:
+        """
+        Get a Clean name of the class representation
+        :param obj: Object which string representation should be stripped
+        :type obj: class; uninitiated
+        :return: A Clean Name of the object with only the class Name
+        :rtype: str
+
+        Example:
+        =========
+        str(object) -> '<class object>'
+        clean_name(obj) ->  'object'
+        """
         return self.clean_namespaces(obj, "name")
 
     @staticmethod
-    def clean_namespaces(obj, return_type):
+    def clean_namespaces(obj: object, return_type: str) -> str:
         obj_repr = str(obj)
         clean_repr = (obj_repr.replace("class", "")
                       .replace("<", "")
@@ -110,17 +186,19 @@ class Puml():
         else:
             raise KeyError(f"""Returntype {return_type} is unkown 
                                 please use either name, namespace or repr as input string""")
+
     @staticmethod
-    def save_flatten(obj):
+    def save_flatten(obj: list) -> list:
         if obj:
-            return [item for sublist in obj if sublist for item in sublist ]
-        else :
+            return [item for sublist in obj if sublist for item in sublist]
+        else:
             return []
 
-    def clean_list_name(self, obj_list, return_type="repr"):
+    def clean_list_name(self, obj_list: list, return_type: str = "repr") -> list:
         return [self.clean_namespaces(obj, return_type) for obj in obj_list]
 
-    def draw_class(self, obj):
+    def draw_class(self, obj: object) -> str:
+
         own_methods = self.get_methods(obj)
         own_public = [method for method in own_methods if not method.startswith("_")]
         own_private = [method for method in own_methods
@@ -163,7 +241,7 @@ class Puml():
         return self.class_template.render( **inherited_methods, **own_methods,
                                           class_name=self.clean_namespaces(obj, "repr"))
 
-    def draw_puml(self):
+    def draw_puml(self) -> str:
 
 
         children = [self.clean_namespaces(obj, "repr") for obj in self.parent_dict.keys()]
@@ -188,7 +266,7 @@ class Puml():
         puml = self.puml_tmpl.render(body=puml_body)
         return puml
 
-    def generate_puml(self, filepath=None):
+    def generate_puml(self, filepath=None) -> None:
 
         puml_content = self.draw_puml()
         print(f"Gonna Write to {filepath}")
