@@ -200,6 +200,14 @@ class Puml:
     def draw_class(self, obj: object) -> str:
 
         own_methods = self.get_methods(obj)
+        parent_methods = self.save_flatten([self.get_methods(parent) for parent in self.expanded_parents.get(obj)])
+        own_methods = set(own_methods) - set(parent_methods)
+
+        own_attributes = set(dir(obj)) - own_methods - set(parent_methods)
+        parent_attrs = self.save_flatten([dir(parent) for parent in self.expanded_parents.get(obj)])
+        inherited_methods = set(parent_methods) - own_methods
+        inherited_attributes = set(dir(parent_attrs)) - own_attributes - set(dir(list))
+
         own_public = [method for method in own_methods if not method.startswith("_")]
         own_private = [method for method in own_methods
                         if not method.startswith("__")
@@ -211,17 +219,8 @@ class Puml:
                       if method.startswith("__")
                       and  method.endswith("__")]
 
-        own_methods = {"own_public": own_public,
-                       "own_private": own_private,
-                       "own_secret": own_secret,
-                       "own_dunder": own_dunder
-                      }
-
-        parent_methods = self.save_flatten([self.method_mapping.get(parent) for parent in self.expanded_parents.get(obj)])
-
-
-        inherited_methods = set(own_methods) - set(parent_methods)
         inherited_public = [method for method in inherited_methods if not method.startswith("_")]
+
         inherited_private = [method for method in inherited_methods
                         if not method.startswith("__")
                         and method.startswith("_")]
@@ -232,10 +231,18 @@ class Puml:
                            if method.startswith("__")
                            and method.endswith("__")]
 
-        inherited_methods = {"inhertied_public": inherited_public,
-                             "inhertied_private": inherited_private,
-                             "inhertied_secret": inheried_secret,
-                             "inhertied_dunder": inheried_dunder
+        own_methods = {"own_public": own_public,
+                       "own_private": own_private,
+                       "own_secret": own_secret,
+                       "own_dunder": own_dunder,
+                       "own_attrs": [att for att in own_attributes if not att.endswith("__")]
+                      }
+
+        inherited_methods = {"inherited_public": inherited_public,
+                             "inherited_private": inherited_private,
+                             "inherited_secret": inheried_secret,
+                             "inherited_dunder": inheried_dunder,
+                             "inherited_attrs": [att for att in inherited_attributes if not att.endswith("__")]
                              }
 
         return self.class_template.render( **inherited_methods, **own_methods,
