@@ -257,7 +257,7 @@ class Puml:
                    }
         namespaces = set([self.clean_namespaces(obj, "namespace") for obj in children])
 
-        puml_classes = ''.join([self.draw_class(obj) for obj in self.parent_dict.keys()])
+        puml_classes = '\n'.join([self.draw_class(obj) for obj in self.parent_dict.keys()])
         relations = self.relations_template.render(children=children,
                                                    parents=parents)
         ns = ""
